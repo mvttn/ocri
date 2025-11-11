@@ -1,10 +1,10 @@
-const BASE_URL = "http://192.168.50.114:8000/api";
+const BASE_URL = "http://3.25.114.124:8000/api";
 
 export async function uploadImage(imageUri: string) {
   const form = new FormData();
   form.append("file", { uri: imageUri, name: "photo.jpg", type: "image/jpeg" } as unknown as Blob);
 
-  const response = await fetch(`${BASE_URL}/ocr`, {
+  const response = await fetch(`${BASE_URL}/ocr/`, {
     method: "POST",
     headers: { Accept: "application/json" },
     body: form,
