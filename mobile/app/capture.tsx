@@ -13,6 +13,7 @@ import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 import { useIsFocused } from "@react-navigation/native";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as ImagePicker from "expo-image-picker";
+import { uploadImage } from "@/services/api";
 
 export default function Capture() {
   const isFocused = useIsFocused();
@@ -20,24 +21,24 @@ export default function Capture() {
   const [permission, requestPermission] = useCameraPermissions();
   const [libPermission, requestLibPermission] = ImagePicker.useMediaLibraryPermissions();
   const cameraRef = useRef<CameraView | null>(null);
+
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
 
-  // Auto-request permission
+  // Auto-request camera permission
   useEffect(() => {
     if (!permission) return;
     if (!permission.granted && permission.canAskAgain) requestPermission();
   }, [permission]);
 
-  if (!permission) {
+  if (!permission)
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator />
       </View>
     );
-  }
-
-  if (!permission.granted) {
+  if (!permission.granted)
     return (
       <View className="flex-1 justify-center items-center px-6">
         <Text className="text-center pb-2">We need your permission to show the camera.</Text>
@@ -54,7 +55,6 @@ export default function Capture() {
         )}
       </View>
     );
-  }
 
   const toggleFacing = () => setFacing((cur) => (cur === "back" ? "front" : "back"));
 
@@ -62,13 +62,11 @@ export default function Capture() {
     if (!cameraRef.current || busy) return;
     try {
       setBusy(true);
-      const result = await cameraRef.current.takePictureAsync({
-        quality: 0.9,
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
         skipProcessing: true,
       });
-      if (result && "uri" in result && result.uri) {
-        setPhotoUri(result.uri);
-      }
+      if (photo?.uri) setPhotoUri(photo.uri);
     } finally {
       setBusy(false);
     }
@@ -76,7 +74,6 @@ export default function Capture() {
 
   const pickFromLibrary = async () => {
     try {
-      // Request permission if needed
       let granted = libPermission?.granted;
       if (!granted) {
         const res = await requestLibPermission();
@@ -87,15 +84,31 @@ export default function Capture() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
-        quality: 1,
+        quality: 0.8,
       });
 
-      if (!result.canceled && result.assets?.length) {
-        setPhotoUri(result.assets[0].uri);
-      }
-    } catch {
-      // no-op
+      if (!result.canceled && result.assets?.length) setPhotoUri(result.assets[0].uri);
+    } catch (err) {
+      console.error("Library pick failed", err);
     }
+  };
+
+  const handleUpload = async () => {
+    if (!photoUri) return;
+    try {
+      setBusy(true);
+      const data = await uploadImage(photoUri);
+      setResult(data.text);
+    } catch (err) {
+      console.error("Upload failed", err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetCapture = () => {
+    setPhotoUri(null);
+    setResult("");
   };
 
   return (
@@ -108,10 +121,14 @@ export default function Capture() {
         <View className="flex-1 bg-black" />
       )}
 
-      {/* Controls */}
+      {busy && (
+        <View className="absolute inset-0 items-center justify-center bg-black/50">
+          <ActivityIndicator size="large" color="#fff" />
+        </View>
+      )}
+
       <View className="absolute bottom-12 left-0 right-0 px-8">
         <View className="flex-row items-center justify-between">
-          {/* Flip */}
           <TouchableOpacity
             onPress={toggleFacing}
             className="h-12 w-12 rounded-full bg-white/15 items-center justify-center"
@@ -119,7 +136,6 @@ export default function Capture() {
             <FontAwesome name="refresh" size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Shutter */}
           <TouchableOpacity
             onPress={photoUri ? undefined : onCapture}
             disabled={busy || !!photoUri}
@@ -128,7 +144,6 @@ export default function Capture() {
             <View className="h-12 w-12 rounded-full bg-white" />
           </TouchableOpacity>
 
-          {/* Gallery */}
           <TouchableOpacity
             onPress={pickFromLibrary}
             disabled={busy}
@@ -138,13 +153,9 @@ export default function Capture() {
           </TouchableOpacity>
         </View>
 
-        {/* Preview actions */}
         {photoUri && (
           <View className="mt-4 flex-row justify-center gap-4">
-            <TouchableOpacity
-              onPress={() => setPhotoUri(null)}
-              className="px-4 py-2 rounded-md bg-white/15"
-            >
+            <TouchableOpacity onPress={resetCapture} className="px-4 py-2 rounded-md bg-white/15">
               <Text className="text-white font-semibold">Retake</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -153,17 +164,20 @@ export default function Capture() {
             >
               <Text className="text-white font-semibold">Choose Photo</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                // Use the photo URI here (upload, navigate, etc.)
-                // console.log(photoUri);
-              }}
-              className="px-4 py-2 rounded-md bg-indigo-600"
-            >
-              <Text className="text-white font-semibold">Use Photo</Text>
+            <TouchableOpacity onPress={handleUpload} className="px-4 py-2 rounded-md bg-indigo-600">
+              <Text className="text-white font-semibold">
+                {busy ? "Processing..." : "Extract Text"}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
+
+        {result ? (
+          <View className="mt-4 p-4 bg-white/10 rounded-lg">
+            <Text className="text-white font-semibold mb-2">Extracted Text:</Text>
+            <Text className="text-white">{result}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
