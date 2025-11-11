@@ -1,12 +1,14 @@
 from paddleocr import PaddleOCR
 
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
+# Initialize once, can reuse
+ocr = PaddleOCR(use_angle_cls=True, lang="en")  # Adjust lang if needed
 
 def extract_text_from_image(image_path: str) -> str:
-    result = ocr.ocr(image_path)
-    text = ""
-    for line in result:
-        for word_info in line:
-            word_text = word_info[1][0]
-            text += word_text + " "
-    return text.strip()
+    """
+    Returns extracted text from an image file.
+    """
+    result = ocr.ocr(image_path, cls=True)
+    # Concatenate all detected text
+    text_lines = [line[1][0] for page in result for line in page]
+    return "\n".join(text_lines)
+

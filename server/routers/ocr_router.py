@@ -4,6 +4,7 @@ import aiofiles
 import os
 from datetime import datetime
 from asyncio import get_event_loop
+from server.services.ocr_service import extract_text_from_image 
 
 router = APIRouter(prefix="/api/ocr", tags=["OCR"])
 
@@ -25,14 +26,13 @@ async def ocr_image(file: UploadFile = File(...)):
         content = await file.read()
         await out_file.write(content)
 
-    # Optionally, you can run OCR here with extract_text_from_image(save_path)
-    # loop = get_event_loop()
-    # text = await loop.run_in_executor(None, extract_text_from_image, save_path)
+    loop = get_event_loop()
+    text = await loop.run_in_executor(None, extract_text_from_image, save_path)
 
     return {
         "saved_to": save_path,
         "url": f"/api/ocr/uploads/{filename}",
-        # "text": text  # Uncomment when OCR is ready
+        "text": text  # Uncomment when OCR is ready
     }
 
 @router.get("/uploads/{filename}")
