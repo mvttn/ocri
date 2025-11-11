@@ -24,7 +24,7 @@ export default function Capture() {
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState("Hello");
+  const [result, setResult] = useState("");
 
   // Auto-request camera permission
   useEffect(() => {
